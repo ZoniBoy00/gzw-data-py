@@ -3,4 +3,4 @@
 from .client import GzwApiError, GzwDataClient
 
 __all__ = ["GzwApiError", "GzwDataClient"]
-__version__ = "0.1.1"
+__version__ = "0.1.2"

@@ -1,23 +1,24 @@
 # Releasing to PyPI
 
-Releases use PyPI **Trusted Publishing** (GitHub Actions OIDC), so no API token is stored anywhere.
-
-## One-time setup
-
-1. Create an account on <https://pypi.org> and enable 2FA.
-2. Open <https://pypi.org/manage/account/publishing/> and add a **pending publisher**:
-   - PyPI project name: `gzw-data`
-   - Owner: `ZoniBoy00`, repository: `gzw-data-py`
-   - Workflow file: `publish.yml`
-   - Environment: `pypi`
-3. In the GitHub repo, create an environment named `pypi` (Settings → Environments). Optionally require your approval for deployments.
+Releases are automatic. A push to `main` that changes the version in `pyproject.toml` publishes it to [PyPI](https://pypi.org/project/gzw-data/) through PyPI **Trusted Publishing** (GitHub Actions OIDC), so no API token is stored anywhere.
 
 ## Each release
 
-1. Bump `version` in `pyproject.toml` and `gzw_data/__init__.py`, and update the README if needed.
-2. Run `python -m unittest discover -s tests` and commit to `main`.
-3. Tag and push: `git tag -a v0.1.2 -m "v0.1.2" && git push origin v0.1.2`.
-4. The `Publish to PyPI` workflow checks that the tag matches the version, runs the tests, builds, publishes, and creates a GitHub release.
-5. Verify in a clean environment: `pip install gzw-data==0.1.2`.
+1. Bump `version` in `pyproject.toml` **and** `__version__` in `gzw_data/__init__.py`, and the `user_agent` default in `gzw_data/client.py`. A test fails if they disagree.
+2. Run `python -m unittest discover -s tests` and push to `main`.
+3. The `Publish to PyPI` workflow then:
+   - reads the version and checks whether it is already on PyPI (if it is, it stops without error),
+   - runs the tests and builds the sdist and wheel,
+   - publishes to PyPI from the protected `pypi` environment,
+   - creates the `vX.Y.Z` tag and a GitHub release with generated notes.
+4. Verify in a clean environment: `pip install gzw-data==X.Y.Z`.
 
-Versions on PyPI are immutable: a published version can never be replaced, only superseded.
+You can also run the workflow manually from the Actions tab (`workflow_dispatch`); it only publishes versions that are not on PyPI yet.
+
+Versions on PyPI are immutable: a published version can never be replaced, only superseded. Fix a bad release with a new patch version.
+
+## Setup (already done)
+
+- PyPI trusted publisher for project `gzw-data`: owner `ZoniBoy00`, repository `gzw-data-py`, workflow `publish.yml`, environment `pypi`.
+- GitHub environment named `pypi` (Settings → Environments).
+- Keep the workflow file name and environment name unchanged, or update the publisher entry on PyPI to match.

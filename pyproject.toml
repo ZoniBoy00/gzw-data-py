@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gzw-data"
-version = "0.1.1"
+version = "0.1.2"
 description = "Python client for the free Gray Zone Warfare data API (gzw-data.dev)"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -14,7 +14,11 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://gzw-data.dev/"
+Documentation = "https://gzw-data.dev/docs/python/"
 Source = "https://github.com/ZoniBoy00/gzw-data-py"
+Issues = "https://github.com/ZoniBoy00/gzw-data-py/issues"
+Changelog = "https://github.com/ZoniBoy00/gzw-data-py/releases"
+PyPI = "https://pypi.org/project/gzw-data/"
 
 [tool.setuptools]
 packages = ["gzw_data"]
