@@ -1,7 +1,7 @@
 # gzw-data (Python)
 
-[![PyPI](https://img.shields.io/pypi/v/gzw-data?label=PyPI)](https://pypi.org/project/gzw-data/)
-[![Python versions](https://img.shields.io/pypi/pyversions/gzw-data)](https://pypi.org/project/gzw-data/)
+[![PyPI](https://img.shields.io/pypi/v/gzw-data?label=PyPI&c=1)](https://pypi.org/project/gzw-data/)
+[![Python versions](https://img.shields.io/pypi/pyversions/gzw-data?c=1)](https://pypi.org/project/gzw-data/)
 [![CI](https://github.com/ZoniBoy00/gzw-data-py/actions/workflows/ci.yml/badge.svg)](https://github.com/ZoniBoy00/gzw-data-py/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/ZoniBoy00/gzw-data-py)](LICENSE)
 
