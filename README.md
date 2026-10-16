@@ -17,7 +17,7 @@ for ammo in client.iterate("ammo", search="5.56"):
 print(list(client.search("AK")))               # dataset names that matched
 ```
 
-Errors raise `GzwApiError` (`.status`, `.code`, `.url`). Rate-limit and 5xx responses are retried with backoff.
+Errors raise `GzwApiError` (`.status`, `.code`, `.url`). Rate-limit (honouring `Retry-After`) and 5xx responses are retried with backoff.
 
 Game data comes from the community wiki and has its own terms: see the [data license](https://github.com/ZoniBoy00/gzw-data/blob/main/DATA_LICENSE.md). Code is MIT.
 

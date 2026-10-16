@@ -18,9 +18,9 @@ def envelope(data, **extra):
     return FakeResponse(json.dumps({"data": data, **extra}).encode())
 
 
-def http_error(req, status, code, message="err"):
+def http_error(req, status, code, message="err", headers=None):
     body = json.dumps({"error": {"code": code, "message": message}}).encode()
-    return urllib.error.HTTPError(req.full_url, status, message, {}, io.BytesIO(body))
+    return urllib.error.HTTPError(req.full_url, status, message, headers or {}, io.BytesIO(body))
 
 
 class ClientTests(unittest.TestCase):
@@ -67,6 +67,33 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         self.assertEqual(ctx.exception.code, "RATE_LIMITED")
         self.assertEqual(ctx.exception.status, 429)
+
+    def test_honours_retry_after_header(self):
+        from unittest import mock
+
+        calls = []
+
+        def opener(req, timeout):
+            calls.append(1)
+            if len(calls) == 1:
+                raise http_error(req, 429, "RATE_LIMITED", headers={"Retry-After": "7"})
+            return envelope({"ok": True})
+
+        with mock.patch("gzw_data.client.time.sleep") as sleep:
+            result = GzwDataClient(opener=opener).request("health")
+        sleep.assert_called_once_with(7.0)
+        self.assertEqual(result["data"], {"ok": True})
+
+    def test_retry_after_is_capped(self):
+        from unittest import mock
+
+        def opener(req, timeout):
+            raise http_error(req, 429, "RATE_LIMITED", headers={"Retry-After": "600"})
+
+        with mock.patch("gzw_data.client.time.sleep") as sleep, self.assertRaises(GzwApiError) as ctx:
+            GzwDataClient(opener=opener, retries=1, max_retry_wait=30).request("health")
+        sleep.assert_called_once_with(30)
+        self.assertEqual(ctx.exception.retry_after, 600.0)
 
     def test_does_not_retry_client_errors(self):
         calls = []

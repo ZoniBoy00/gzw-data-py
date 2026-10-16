@@ -16,11 +16,14 @@ RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 class GzwApiError(Exception):
     """Raised when the API returns an error or cannot be reached."""
 
-    def __init__(self, message: str, *, status: int = 0, code: str = "UNKNOWN", url: str = "") -> None:
+    def __init__(
+        self, message: str, *, status: int = 0, code: str = "UNKNOWN", url: str = "", retry_after: Optional[float] = None
+    ) -> None:
         super().__init__(message)
         self.status = status
         self.code = code
         self.url = url
+        self.retry_after = retry_after  # seconds, from the Retry-After header when present
 
 
 class GzwDataClient:
@@ -37,13 +40,15 @@ class GzwDataClient:
         *,
         timeout: float = 10.0,
         retries: int = 2,
-        user_agent: str = "gzw-data-python/0.1",
+        user_agent: str = "gzw-data-python/0.1.1",
+        max_retry_wait: float = 65.0,
         opener: Optional[Callable[..., Any]] = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.retries = retries
         self.user_agent = user_agent
+        self.max_retry_wait = max_retry_wait
         self._open = opener or urllib.request.urlopen
 
     # -- low level ---------------------------------------------------------
@@ -65,20 +70,26 @@ class GzwDataClient:
             except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
                 last = GzwApiError(f"Request failed: {exc}", code="NETWORK_ERROR", url=url)
             if attempt < self.retries:
-                time.sleep(min(0.4 * 2**attempt, 4.0))
+                delay = last.retry_after if last.retry_after is not None else min(0.4 * 2**attempt, 4.0)
+                time.sleep(min(delay, self.max_retry_wait))
         assert last is not None
         raise last
 
     @staticmethod
     def _from_http_error(exc: urllib.error.HTTPError, url: str) -> GzwApiError:
         code, message = "HTTP_ERROR", f"HTTP {exc.code}"
+        retry_after: Optional[float] = None
+        try:
+            retry_after = float(exc.headers.get("Retry-After")) if exc.headers and exc.headers.get("Retry-After") else None
+        except (TypeError, ValueError):
+            pass
         try:
             error = json.loads(exc.read().decode("utf-8")).get("error", {})
             code = error.get("code", code)
             message = error.get("message", message)
         except (ValueError, AttributeError):
             pass
-        return GzwApiError(message, status=exc.code, code=code, url=url)
+        return GzwApiError(message, status=exc.code, code=code, url=url, retry_after=retry_after)
 
     # -- API ---------------------------------------------------------------
 
