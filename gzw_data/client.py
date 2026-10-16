@@ -40,7 +40,7 @@ class GzwDataClient:
         *,
         timeout: float = 10.0,
         retries: int = 2,
-        user_agent: str = "gzw-data-python/0.1.2",
+        user_agent: str = "gzw-data-python/0.1.3",
         max_retry_wait: float = 65.0,
         opener: Optional[Callable[..., Any]] = None,
     ) -> None:
