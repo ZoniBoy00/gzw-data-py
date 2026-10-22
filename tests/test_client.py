@@ -2,6 +2,7 @@ import io
 import json
 import unittest
 import urllib.error
+import urllib.parse
 
 from gzw_data import GzwApiError, GzwDataClient
 
@@ -111,6 +112,96 @@ class ClientTests(unittest.TestCase):
             return envelope({"ammo": {"total": 79}, "weapons": {"total": 44}})
 
         self.assertEqual(GzwDataClient(opener=opener).datasets(), {"ammo": 79, "weapons": 44})
+
+    def test_search_builds_options(self):
+        seen = []
+
+        def opener(req, timeout):
+            seen.append(urllib.parse.urlparse(req.full_url))
+            return envelope({"results": {"weapons": [{"id": "ak-12"}]}})
+
+        results = GzwDataClient(opener=opener).search("ak", datasets=["weapons", "ammo"], fields=["name"], fuzzy=True, limit=5)
+        self.assertEqual(results, {"weapons": [{"id": "ak-12"}]})
+        self.assertEqual(seen[0].path, "/api/v1/search")
+        query = urllib.parse.parse_qs(seen[0].query)
+        self.assertEqual(query, {"q": ["ak"], "dataset": ["weapons,ammo"], "fields": ["name"], "fuzzy": ["true"], "limit": ["5"]})
+
+    def test_search_without_options_sends_only_query(self):
+        seen = []
+
+        def opener(req, timeout):
+            seen.append(req.full_url)
+            return envelope({"results": {}})
+
+        GzwDataClient(opener=opener).search("ak")
+        self.assertTrue(seen[0].endswith("/search?q=ak"))
+
+    def test_export_returns_envelope_and_encodes_dataset(self):
+        seen = []
+
+        def opener(req, timeout):
+            seen.append(req.full_url)
+            return envelope([{"id": "ak-12"}], export={"dataset": "weapons", "count": 1, "maxRecords": 500})
+
+        payload = GzwDataClient(opener=opener).export("weapons", search="ak", limit=1, caliber="5.45x39mm")
+        self.assertEqual(payload["export"]["maxRecords"], 500)
+        self.assertEqual(payload["data"], [{"id": "ak-12"}])
+        self.assertIn("/export/weapons?", seen[0])
+        self.assertIn("search=ak", seen[0])
+        self.assertIn("limit=1", seen[0])
+        self.assertIn("caliber=5.45x39mm", seen[0])
+
+    def test_export_too_large_raises(self):
+        def opener(req, timeout):
+            raise http_error(req, 413, "EXPORT_TOO_LARGE")
+
+        with self.assertRaises(GzwApiError) as ctx:
+            GzwDataClient(opener=opener).export("items")
+        self.assertEqual(ctx.exception.code, "EXPORT_TOO_LARGE")
+
+    def test_item_context_returns_data_or_none(self):
+        seen = []
+
+        def found(req, timeout):
+            seen.append(req.full_url)
+            return envelope({"item": {"id": "a b"}, "vendors": [], "references": []})
+
+        def missing(req, timeout):
+            raise http_error(req, 404, "RECORD_NOT_FOUND")
+
+        self.assertEqual(GzwDataClient(opener=found).item_context("a b")["item"]["id"], "a b")
+        self.assertTrue(seen[0].endswith("/items/a%20b/context"))
+        self.assertIsNone(GzwDataClient(opener=missing).item_context("x"))
+
+    def test_status_and_metadata_helpers_unwrap_data(self):
+        seen = []
+
+        def opener(req, timeout):
+            seen.append(req.full_url)
+            return envelope({"ok": True})
+
+        client = GzwDataClient(opener=opener)
+        for call in (client.health, client.ready, client.version, client.changes):
+            self.assertEqual(call(), {"ok": True})
+        client.metadata()
+        client.metadata("weapons")
+        client.schema("weapons")
+        paths = [url.split("/api/v1/")[1] for url in seen]
+        self.assertEqual(paths, ["health", "ready", "version", "changes", "metadata?full=true", "metadata/weapons", "schema/weapons"])
+
+    def test_smart_routes_follow_all_pages(self):
+        seen = []
+
+        def opener(req, timeout):
+            seen.append(req.full_url.split("/api/v1/")[1].split("?")[0])
+            page = int(req.full_url.split("page=")[1].split("&")[0])
+            return envelope([{"id": f"x{page}"}], totalPages=2)
+
+        client = GzwDataClient(opener=opener)
+        self.assertEqual(client.armor(), [{"id": "x1"}, {"id": "x2"}])
+        client.weapon_parts()
+        client.helmet_mods()
+        self.assertEqual(seen, ["armor", "armor", "weapon_parts", "weapon_parts", "helmet_mods", "helmet_mods"])
 
 
 if __name__ == "__main__":

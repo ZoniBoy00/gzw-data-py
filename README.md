@@ -26,6 +26,17 @@ for ammo in client.iterate("ammo", search="5.56"):
 print(list(client.search("AK")))               # dataset names that matched
 ```
 
+More methods:
+
+```python
+client.search("ak", datasets=["weapons", "ammo"], fuzzy=True, limit=5)
+client.export("weapons", search="ak", limit=25)   # bounded export, max 500 records
+client.item_context("advanced-tracking-tag")      # item + vendors + references, or None
+client.armor()                                    # smart routes: armor(), weapon_parts(), helmet_mods()
+client.metadata("weapons"), client.schema("weapons")
+client.version(), client.changes(), client.health(), client.ready()
+```
+
 Errors raise `GzwApiError` (`.status`, `.code`, `.url`, `.retry_after`). Rate-limit (honouring `Retry-After`) and 5xx responses are retried with backoff.
 
 Game data comes from the community wiki and has its own terms: see the [data license](https://github.com/ZoniBoy00/gzw-data/blob/main/DATA_LICENSE.md). Code is MIT.

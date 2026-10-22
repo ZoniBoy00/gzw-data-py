@@ -7,7 +7,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Callable, Iterator, Optional
+from typing import Any, Callable, Iterator, Optional, Sequence
 
 DEFAULT_BASE_URL = "https://gzw-data.dev/api/v1"
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
@@ -40,7 +40,7 @@ class GzwDataClient:
         *,
         timeout: float = 10.0,
         retries: int = 2,
-        user_agent: str = "gzw-data-python/0.1.3",
+        user_agent: str = "gzw-data-python/0.2.0",
         max_retry_wait: float = 65.0,
         opener: Optional[Callable[..., Any]] = None,
     ) -> None:
@@ -121,6 +121,83 @@ class GzwDataClient:
                 return None
             raise
 
-    def search(self, query: str) -> dict[str, list[dict[str, Any]]]:
-        """Search all datasets. Returns dataset name -> matching records."""
-        return self.request("search", {"q": query})["data"]["results"]
+    def search(
+        self,
+        query: str,
+        *,
+        datasets: Optional[Sequence[str]] = None,
+        fields: Optional[Sequence[str]] = None,
+        fuzzy: Optional[bool] = None,
+        limit: Optional[int] = None,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Search all datasets. Returns dataset name -> matching records.
+
+        ``datasets`` limits the search to those datasets, ``fields`` to those record
+        fields, ``fuzzy`` enables typo-tolerant matching and ``limit`` caps results.
+        """
+        params = {
+            "q": query,
+            "dataset": ",".join(datasets) if datasets else None,
+            "fields": ",".join(fields) if fields else None,
+            "fuzzy": None if fuzzy is None else str(fuzzy).lower(),
+            "limit": limit,
+        }
+        return self.request("search", params)["data"]["results"]
+
+    def export(self, dataset: str, *, search: Optional[str] = None, limit: Optional[int] = None, sort: Optional[str] = None, **filters: Any) -> dict[str, Any]:
+        """Bounded export of one dataset (at most 500 matching records).
+
+        Returns the envelope with ``data`` and an ``export`` object (``dataset``,
+        ``count``, ``maxRecords``). A larger match raises ``GzwApiError`` with code
+        ``EXPORT_TOO_LARGE``; narrow it with ``search``, ``limit`` or filters.
+        """
+        return self.request(f"export/{urllib.parse.quote(dataset, safe='')}", {"search": search, "limit": limit, "sort": sort, **filters})
+
+    def item_context(self, item_id: str) -> Optional[dict[str, Any]]:
+        """An item with its vendors and textual references, or ``None`` if it does not exist."""
+        try:
+            return self.request(f"items/{urllib.parse.quote(item_id, safe='')}/context")["data"]
+        except GzwApiError as exc:
+            if exc.code == "RECORD_NOT_FOUND":
+                return None
+            raise
+
+    def armor(self) -> list[dict[str, Any]]:
+        """Smart route: vests, helmets and glasses combined (all pages)."""
+        return list(self.iterate("armor"))
+
+    def weapon_parts(self) -> list[dict[str, Any]]:
+        """Smart route: all weapon parts combined (all pages)."""
+        return list(self.iterate("weapon_parts"))
+
+    def helmet_mods(self) -> list[dict[str, Any]]:
+        """Smart route: night vision and helmet mounts (all pages)."""
+        return list(self.iterate("helmet_mods"))
+
+    # -- metadata and status -----------------------------------------------
+
+    def metadata(self, dataset: Optional[str] = None) -> dict[str, Any]:
+        """Field metadata and capabilities for one dataset, or for all datasets."""
+        if dataset:
+            return self.request(f"metadata/{urllib.parse.quote(dataset, safe='')}")["data"]
+        return self.request("metadata", {"full": "true"})["data"]
+
+    def schema(self, dataset: str) -> dict[str, Any]:
+        """Machine-readable schema for one dataset."""
+        return self.request(f"schema/{urllib.parse.quote(dataset, safe='')}")["data"]
+
+    def version(self) -> dict[str, Any]:
+        """API version, implementation version, data version and latest snapshot."""
+        return self.request("version")["data"]
+
+    def changes(self) -> dict[str, Any]:
+        """Dataset count changes since the previous stored snapshot."""
+        return self.request("changes")["data"]
+
+    def health(self) -> dict[str, Any]:
+        """Lightweight liveness check."""
+        return self.request("health")["data"]
+
+    def ready(self) -> dict[str, Any]:
+        """Readiness probe; raises ``GzwApiError`` (503) until datasets are loaded."""
+        return self.request("ready")["data"]
