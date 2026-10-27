@@ -204,5 +204,26 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(seen, ["armor", "armor", "weapon_parts", "weapon_parts", "helmet_mods", "helmet_mods"])
 
 
+class RootHelperTests(unittest.TestCase):
+    def test_endpoints_spec_and_images(self):
+        seen = []
+
+        def opener(req, timeout):
+            seen.append(req.full_url)
+            if req.full_url.endswith("/spec"):
+                return FakeResponse(json.dumps({"openapi": "3.0.0"}).encode())
+            if req.full_url.endswith("/images"):
+                return envelope({"AK-12": "https://example.test/ak.png"})
+            return envelope({"endpoints": ["weapons"]})
+
+        client = GzwDataClient(base_url="https://example.test/api/v1", opener=opener)
+        self.assertEqual(client.endpoints()["endpoints"], ["weapons"])
+        self.assertEqual(client.spec()["openapi"], "3.0.0")
+        self.assertEqual(client.images()["AK-12"], "https://example.test/ak.png")
+        self.assertEqual(seen[0], "https://example.test/api/v1/")
+        self.assertEqual(seen[1], "https://example.test/api/v1/spec")
+        self.assertEqual(seen[2], "https://example.test/api/v1/images")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -35,6 +35,7 @@ client.item_context("advanced-tracking-tag")      # item + vendors + references,
 client.armor()                                    # smart routes: armor(), weapon_parts(), helmet_mods()
 client.metadata("weapons"), client.schema("weapons")
 client.version(), client.changes(), client.health(), client.ready()
+client.endpoints(), client.spec(), client.images()
 ```
 
 Errors raise `GzwApiError` (`.status`, `.code`, `.url`, `.retry_after`). Rate-limit (honouring `Retry-After`) and 5xx responses are retried with backoff.

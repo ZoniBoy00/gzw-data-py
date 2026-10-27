@@ -40,7 +40,7 @@ class GzwDataClient:
         *,
         timeout: float = 10.0,
         retries: int = 2,
-        user_agent: str = "gzw-data-python/0.2.0",
+        user_agent: str = "gzw-data-python/0.3.0",
         max_retry_wait: float = 65.0,
         opener: Optional[Callable[..., Any]] = None,
     ) -> None:
@@ -201,3 +201,15 @@ class GzwDataClient:
     def ready(self) -> dict[str, Any]:
         """Readiness probe; raises ``GzwApiError`` (503) until datasets are loaded."""
         return self.request("ready")["data"]
+
+    def endpoints(self) -> dict[str, Any]:
+        """API root: name, implementation version and the list of endpoints."""
+        return self.request("")["data"]
+
+    def spec(self) -> dict[str, Any]:
+        """The OpenAPI document (returned as-is, not wrapped in a data envelope)."""
+        return self.request("spec")
+
+    def images(self) -> dict[str, str]:
+        """Item name -> image URL for every record that has an image."""
+        return self.request("images")["data"]
